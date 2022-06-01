@@ -30,6 +30,137 @@ def conectar(entorno):
     return result
 
 
+def filiacion(codigo, distribucion_part):
+    roles = ""
+    if distribucion_part == 1:
+        roles = "'RE','CS','CE'"
+
+    elif distribucion_part == 2:
+        roles = "'AS','DS','CS','CE'"
+
+    elif distribucion_part == 5:
+        roles = "'DS','AS','CS','CE'"
+
+    sql = """SELECT
+    *
+FROM
+    (
+        SELECT DISTINCT
+            t1.ip2_ipn_id AS ip_name_id,
+            t3.ip2_ipb_id AS ip_base,
+            t2.ip2_ipb_member_code AS ip_member_code,
+            t2.ip2_ipb_code AS ip_base_code,
+            t1.ip2_ipn_name
+            || ' '
+            || t1.ip2_ipn_first_name AS indexed_name,
+            (
+                CASE
+                    WHEN t1.ip2_nsr_id = 2
+                         AND t1.ip2_ipn_internal = 1 THEN 1
+                    ELSE 0
+                END
+            ) AS internal,
+            t2.ip2_ipb_int_role AS role,
+            nvl(lpad(t41.ip2_mbr_soc_code,3,'0'),'099') AS soc_code,
+            t41.ip2_mbr_cc_code AS cc_code,
+            t41.ip2_mbr_rl_code,
+            t41.ip2_mbr_rg_code AS rg_code,
+            t41.ip2_mbr_dt_from,
+            t41.ip2_mbr_dt_to,
+            t41.ip2_mbr_ter_id,
+            t1.ip2_nty_id
+        FROM
+            t_ip2_ip_base_memberships t41,
+            t_ip2_ip_names t1,
+            t_ip2_ip_bases t2,
+            t_ip2_ip_base_names t3
+        WHERE
+            t3.ip2_ipn_id (+) = t1.ip2_ipn_id
+            AND t2.ip2_ipb_id (+) = t3.ip2_ipb_id
+            AND t41.ip2_mbr_ip_base (+) = t2.ip2_ipb_id
+            AND t3.ip2_ipb_id IS NOT NULL
+        UNION
+        SELECT DISTINCT
+            t1.ip2_ipn_id AS ip_name_id,
+            t3.ip2_ipb_id AS ip_base,
+            t2.ip2_ipb_member_code AS ip_member_code,
+            t2.ip2_ipb_code AS ip_base_code,
+            t1.ip2_ipn_name
+            || ' '
+            || t1.ip2_ipn_first_name AS indexed_name,
+            (
+                CASE
+                    WHEN t1.ip2_nsr_id = 2
+                         AND t1.ip2_ipn_internal = 1 THEN 1
+                    ELSE 0
+                END
+            ) AS internal,
+            t2.ip2_ipb_int_role AS role,
+            nvl(lpad(t41.ip2_mbr_soc_code,3,'0'),'099') AS soc_code,
+            t41.ip2_mbr_cc_code AS cc_code,
+            t41.ip2_mbr_rl_code,
+            t41.ip2_mbr_rg_code AS rg_code,
+            t41.ip2_mbr_dt_from,
+            t41.ip2_mbr_dt_to,
+            t41.ip2_mbr_ter_id,
+            t1.ip2_nty_id
+        FROM
+            t_ip2_ip_base_memberships t41,
+            t_ip2_ip_names t1,
+            t_ip2_ip_bases t2,
+            t_ip2_ip_base_names t3,
+            t_ip2_ip_ot_names t4
+        WHERE
+            t4.ip2_otn_ot_ip_name = t1.ip2_ipn_id
+            AND t3.ip2_ipn_id (+) = t4.ip2_otn_ip_name
+            AND t2.ip2_ipb_id (+) = t3.ip2_ipb_id
+            AND t41.ip2_mbr_ip_base (+) = t2.ip2_ipb_id
+    ) t_ipi
+WHERE
+    ip_name_id =:codigo
+    AND (
+        ip2_mbr_dt_from IS NULL
+        OR TO_DATE(ip2_mbr_dt_from,'yyyy-MM-dd hh24:mi:ss') <= TO_DATE(:fecha,'yyyy-MM-dd hh24:mi:ss')
+    )
+    AND (
+        ip2_mbr_dt_to IS NULL
+        OR TO_DATE(ip2_mbr_dt_to,'yyyy-MM-dd hh24:mi:ss') >= TO_DATE(:fecha,'yyyy-MM-dd hh24:mi:ss')
+    )
+    AND cc_code IN (:listaClaseCreacion)
+    AND ip2_mbr_rl_code IN (:listaRoles)
+    AND rg_code IN (:listaTipoDerecho)
+ORDER BY
+    DECODE(cc_code,'AV','CC_CODE1','AF','CC_CODE2','AD','CC_CODE3','DW','CC_CODE4','LW','CC_CODE5')"""
+    values = (codigo, '2021-08-18', '2021-08-18', 'AV', roles, "'TB','PR','RT'")
+
+    cursor.execute(sql, values)
+
+    temp = cursor.fetchone()
+
+    if temp:
+        return temp[7]
+
+    return None
+
+
+def proteccion_sgae(soc_code):
+    if soc_code in ('072', '099'):
+        return True
+
+    sql = "select * from NON_ADMIN_CATALOG where society_code = :codigo"
+    cursor.execute(sql, [soc_code])
+
+    temp = cursor.fetch()
+
+    if temp:
+        if temp[7] == 1:
+            return True
+        else:
+            return False
+
+    return False
+
+
 def buscar_registro(codigo):
     ''' sql = """select wh.work_header_id, wh.cod_sgae, wh.work_type_id, dc1.doc_date, wc.start_effectivity_date,
     dc1.PERCENTAGE, dc.percentage_d, dc.percentage_f, dc.percentage_l, dc.percentage_m,
