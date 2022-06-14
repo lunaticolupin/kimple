@@ -70,10 +70,14 @@ LEFT JOIN T_AUD."WORK" w ON w.WORK_HEADER_ID = wh3.WORK_HEADER_ID AND wh.WORK_TY
 LEFT JOIN T_AUD."WORK" w2 ON w2.WORK_HEADER_ID = wh.WORK_HEADER_ID AND wh.WORK_TYPE_ID = 1
 where wh.cod_sgae= :COD_SGAE and wc.START_EFFECTIVITY_DATE < to_date('2021-08-18','yyyy-mm-dd');
 
-SELECT DISTINCT  wh.COD_SGAE, wh.WORK_HEADER_ID, dc.CONTRACT_HEADER_ID, wh.WORK_TYPE_ID, dc3.VERSION, w.DISTRIBUTION_TYPOLOGY_ID, 
+SELECT t.*, 
+CASE WHEN distribution_part_id = 1 THEN (percentage*porcentaje_d)/(porcentaje_d+porcentaje_l)
+	WHEN distribution_part_id = 2 THEN (percentage*porcentaje_l)/(porcentaje_d+porcentaje_l)
+	ELSE NULL END proteccion_sgae
+FROM (SELECT DISTINCT  wh.COD_SGAE, wh.WORK_HEADER_ID, dc.CONTRACT_HEADER_ID, wh.WORK_TYPE_ID, dc3.VERSION, w.DISTRIBUTION_TYPOLOGY_ID, 
 w.NATIONALITY_ID, wc.START_EFFECTIVITY_DATE,  ch.contract_type_id, 
 dc.COD_IPI, dc.DECLARATION_CONTRACT_ID, dc.PROFESSION_ID, nvl(dc2.DISTRIBUTION_KEY_ID, dc3.DISTRIBUTION_KEY_ID) distribution_key_id,  dc.DISTRIBUTION_PART_ID, 
-dc.PERCENTAGE, nvl(dc2.PERCENTAGE_D, dc3.PERCENTAGE_D) porcentaje_d, nvl(dc2.PERCENTAGE_L, dc3.PERCENTAGE_L) porcentaje_l, nvl(dc2.PERCENTAGE_M, dc3.PERCENTAGE_M) porcentaje_m  
+nvl(dc.PERCENTAGE,100)PERCENTAGE,  nvl(dc2.PERCENTAGE_D, dc3.PERCENTAGE_D) porcentaje_d, nvl(dc2.PERCENTAGE_L, dc3.PERCENTAGE_L) porcentaje_l, nvl(dc2.PERCENTAGE_M, dc3.PERCENTAGE_M) porcentaje_m  
 from t_aud.work_header wh 
 join t_aud.work_contract wc on wc.work_header_id = wh.work_header_id 
 join t_aud.contract_header ch on ch.contract_header_id = wc.contract_header_id 
@@ -94,7 +98,7 @@ LEFT JOIN T_AUD.DEFAULT_CONTRACT dc3 ON dc3.VERSION = CASE WHEN wh.WORK_TYPE_ID 
 	and dc3.START_DISTRIBUTION_DATE  < to_date('2021-08-18','yyyy-mm-dd')  
 	AND (dc3.END_DISTRIBUTION_DATE IS NULL OR to_date('2021-08-18','yyyy-mm-dd') < dc3.END_DISTRIBUTION_DATE) 
 	AND dc3.ASSOCIATION_ID = 1
-where wh.cod_sgae= :COD_SGAE and wc.START_EFFECTIVITY_DATE < to_date('2021-08-18','yyyy-mm-dd');
+where wh.cod_sgae= :COD_SGAE and wc.START_EFFECTIVITY_DATE < to_date('2021-08-18','yyyy-mm-dd')) t;
 
 SELECT e.SERIES_HEADER_ID FROM T_AUD.EPISODE e WHERE e.WORK_HEADER_ID = 1260345;
 
