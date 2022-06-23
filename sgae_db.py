@@ -30,7 +30,7 @@ def conectar(entorno):
     return result
 
 
-def filiacion(codigo, distribucion_part):
+def filiacion(codigo_ipi, distribucion_part):
     roles = ""
     if distribucion_part == 1:
         roles = "'RE','CS','CE'"
@@ -41,7 +41,7 @@ def filiacion(codigo, distribucion_part):
     elif distribucion_part == 5:
         roles = "'DS','AS','CS','CE'"
 
-    sql = """SELECT
+    sql = f"""SELECT
     *
 FROM
     (
@@ -127,13 +127,14 @@ WHERE
         OR TO_DATE(ip2_mbr_dt_to,'yyyy-MM-dd hh24:mi:ss') >= TO_DATE(:fecha,'yyyy-MM-dd hh24:mi:ss')
     )
     AND cc_code IN (:listaClaseCreacion)
-    AND ip2_mbr_rl_code IN (:listaRoles)
-    AND rg_code IN (:listaTipoDerecho)
+    AND ip2_mbr_rl_code IN ({roles})
+    AND rg_code IN ('TB','PR','RT')
 ORDER BY
     DECODE(cc_code,'AV','CC_CODE1','AF','CC_CODE2','AD','CC_CODE3','DW','CC_CODE4','LW','CC_CODE5')"""
-    values = (codigo, '2021-08-18', '2021-08-18', 'AV', roles, "'TB','PR','RT'")
+    values = (codigo_ipi, '2021-08-19 00:00:00', '2021-08-19 00:00:00', 'AV')
 
     cursor.execute(sql, values)
+    #print(cursor.statement)
 
     temp = cursor.fetchone()
 
@@ -147,10 +148,10 @@ def proteccion_sgae(soc_code):
     if soc_code in ('072', '099'):
         return True
 
-    sql = "select * from NON_ADMIN_CATALOG where society_code = :codigo"
+    sql = "select * from NON_ADMIN_CATALOG where SOCIETY_COD = :codigo"
     cursor.execute(sql, [soc_code])
 
-    temp = cursor.fetch()
+    temp = cursor.fetchone()
 
     if temp:
         if temp[7] == 1:
@@ -162,26 +163,46 @@ def proteccion_sgae(soc_code):
 
 
 def buscar_registro(codigo):
-    sql = """SELECT wh.COD_SGAE, wh.WORK_HEADER_ID, dc.CONTRACT_HEADER_ID, wh.WORK_TYPE_ID, 
-    nvl(w2.DISTRIBUTION_TYPOLOGY_ID, w.DISTRIBUTION_TYPOLOGY_ID) tipologia,  
-    nvl(w2.NATIONALITY_ID, w.NATIONALITY_ID) nacionalidad, wc.START_EFFECTIVITY_DATE,  ch.contract_type_id, 
-    dc.COD_IPI, dc.DECLARATION_CONTRACT_ID, dc.PROFESSION_ID, dc2.DISTRIBUTION_KEY_ID, 
-    dc.PERCENTAGE porcentaje_contrato, nvl(dc2.PERCENTAGE_D, 25) porcentaje_d, 
-    nvl(dc2.PERCENTAGE_L, 50) porcentaje_l, nvl(dc2.PERCENTAGE_M, 25) porcentaje_m
+    sql = """SELECT t.*, 
+    CASE WHEN distribution_part_id = 1 THEN (percentage*porcentaje_d)/(porcentaje_d+porcentaje_l+nvl(porcentaje_f,0))
+    WHEN distribution_part_id = 2 THEN (percentage*porcentaje_l)/(porcentaje_d+porcentaje_l+nvl(porcentaje_f,0))
+    WHEN distribution_part_id = 5 THEN (percentage*porcentaje_f)/(porcentaje_d+porcentaje_l)
+    ELSE NULL END proteccion_sgae
+    FROM (SELECT DISTINCT  wh.COD_SGAE, wh.WORK_HEADER_ID, ch.contract_header_id,  wh.WORK_TYPE_ID, dc3.VERSION, w.DISTRIBUTION_TYPOLOGY_ID, 
+    w.NATIONALITY_ID, wc.START_EFFECTIVITY_DATE,  ch.contract_type_id, dc3.
+    dc.COD_IPI, dc.DECLARATION_CONTRACT_ID, dc.PROFESSION_ID, nvl(dc2.DISTRIBUTION_KEY_ID, dc3.DISTRIBUTION_KEY_ID) distribution_key_id,  dc.DISTRIBUTION_PART_ID, 
+    nvl(dc.PERCENTAGE, 100)PERCENTAGE,  nvl(dc2.PERCENTAGE_D, dc3.PERCENTAGE_D) porcentaje_d, nvl(dc2.PERCENTAGE_L, dc3.PERCENTAGE_L) porcentaje_l, nvl(dc2.PERCENTAGE_M, dc3.PERCENTAGE_M) porcentaje_m,
+    nvl(dc2.PERCENTAGE_F, dc3.PERCENTAGE_F) porcentaje_f
     from t_aud.work_header wh 
     join t_aud.work_contract wc on wc.work_header_id = wh.work_header_id 
     join t_aud.contract_header ch on ch.contract_header_id = wc.contract_header_id 
-    LEFT JOIN T_AUD.DECLARATION_CONTRACT dc ON dc.CONTRACT_HEADER_ID = ch.CONTRACT_HEADER_ID 
+    LEFT JOIN T_AUD.DECLARATION_CONTRACT dc ON dc.CONTRACT_HEADER_ID = ch.CONTRACT_HEADER_ID AND 
+    dc.START_EFFECTIVITY_DATE <  to_date('2021-08-18','yyyy-mm-dd') 
+    AND (dc.END_EFFECTIVITY_DATE IS NULL OR dc.END_EFFECTIVITY_DATE > to_date('2021-08-18','yyyy-mm-dd'))
     LEFT JOIN T_AUD.DISTRIBUTION_CONTRACT dc2 ON dc2.CONTRACT_HEADER_ID = ch.CONTRACT_HEADER_ID 
-    LEFT JOIN T_AUD.EPISODE e ON e.WORK_HEADER_ID = wh.WORK_HEADER_ID AND wh.WORK_TYPE_ID = 3 
-    AND e.START_EFFECTIVITY_DATE < to_date('2021-08-18','yyyy-mm-dd')
-    LEFT JOIN T_AUD.WORK_HEADER wh3 ON wh3.WORK_HEADER_ID = e.SERIES_HEADER_ID AND wh.WORK_TYPE_ID = 3
-    LEFT JOIN T_AUD."WORK" w ON w.WORK_HEADER_ID = wh3.WORK_HEADER_ID AND wh.WORK_TYPE_ID = 3
-    LEFT JOIN T_AUD."WORK" w2 ON w2.WORK_HEADER_ID = wh.WORK_HEADER_ID AND wh.WORK_TYPE_ID = 1
-    where wh.cod_sgae= :COD_SGAE and wc.START_EFFECTIVITY_DATE = (
-    SELECT max(wc.START_EFFECTIVITY_DATE) FROM T_AUD.WORK_HEADER wh2
-    JOIN T_AUD.WORK_CONTRACT wc ON wc.WORK_HEADER_ID = wh2.WORK_HEADER_ID 
-    WHERE wh2.cod_sgae = wh.COD_SGAE  and wc.START_EFFECTIVITY_DATE < to_date('2021-08-18','yyyy-mm-dd'))"""
+    AND dc2.START_EFFECTIVITY_DATE < to_date('2021-08-18','yyyy-mm-dd') 
+    AND (dc2.END_EFFECTIVITY_DATE IS NULL OR dc2.END_EFFECTIVITY_DATE > to_date('2021-08-18','yyyy-mm-dd')) 
+    AND dc2.DISTRIBUTION_KEY_ID = 2
+    LEFT JOIN T_AUD."WORK" w ON w.WORK_HEADER_ID = wh.WORK_HEADER_ID 
+    OR (w.WORK_HEADER_ID in (SELECT e.SERIES_HEADER_ID FROM T_AUD.EPISODE e WHERE e.WORK_HEADER_ID=wh.WORK_HEADER_ID) 
+    AND wh.WORK_TYPE_ID IN (2,3))
+    OR (w.WORK_HEADER_ID IN (SELECT v.ORIGINAL_WORK_HEADER_ID  FROM T_AUD.VERSION v 
+    WHERE v.WORK_HEADER_ID=wh.WORK_HEADER_ID) AND wh.WORK_TYPE_ID = 4)
+    OR (w.WORK_HEADER_ID IN (SELECT v3.ORIGINAL_WORK_HEADER_ID  FROM T_AUD.VERSION v2, T_AUD.VERSION v3 
+    WHERE v2.WORK_HEADER_ID=wh.WORK_HEADER_ID 
+    AND v2.SERIES_HEADER_ID=v3.WORK_HEADER_ID) AND wh.WORK_TYPE_ID IN (5,6))
+    AND w.START_EFFECTIVITY_DATE < to_date('2021-08-18','yyyy-mm-dd') AND (w.END_EFFECTIVITY_DATE IS NULL OR 
+    to_date('2021-08-18','yyyy-mm-dd') < w.END_EFFECTIVITY_DATE)
+    LEFT JOIN T_AUD.DEFAULT_CONTRACT dc3 ON dc3.VERSION = CASE WHEN wh.WORK_TYPE_ID IN (1,2,3) THEN 'O' ELSE 'V' END 
+    AND dc3.DISTRIBUTION_TYPOLOGY_ID = w.DISTRIBUTION_TYPOLOGY_ID 
+    AND dc3.NATIONALITY_ID IN (-1,w.NATIONALITY_ID) AND dc3.START_DISTRIBUTION_DATE < to_date('2021-08-18','yyyy-mm-dd') 
+    and dc3.DISTRIBUTION_KEY_ID = 2 
+    and dc3.START_EFFECTIVITY_DATE < to_date('2021-08-18','yyyy-mm-dd') 
+    and (dc3.END_EFFECTIVITY_DATE is null or to_date('2021-08-18','yyyy-mm-dd') < dc3.END_EFFECTIVITY_DATE)
+    and dc3.START_DISTRIBUTION_DATE  < to_date('2021-08-18','yyyy-mm-dd')  
+    AND (dc3.END_DISTRIBUTION_DATE IS NULL OR to_date('2021-08-18','yyyy-mm-dd') < dc3.END_DISTRIBUTION_DATE) 
+    AND dc3.ASSOCIATION_ID = 1
+    where wh.cod_sgae= :COD_SGAE and wc.START_EFFECTIVITY_DATE < to_date('2021-08-18','yyyy-mm-dd')) t"""
 
     cursor.execute(sql, [codigo])
     
@@ -194,7 +215,7 @@ def buscar_registro(codigo):
 
 
 def guardar(row):
-    with open('resultados_12.csv', 'a', newline='') as file:
+    with open('resultados_14.csv', 'a', newline='') as file:
         registros = csv.writer(file, delimiter=',')
         registros.writerow(row)
 
@@ -208,9 +229,10 @@ def main():
     with open('ETL_BROADCASTS_2.csv') as file:
         reader = csv.DictReader(file)
 
-        headers = ["COD_SGAE", "WORK_HEADER_ID", "CONTRACT_HEADER_ID", "WORK_TYPE_ID", "TIPOLOGIA", "NACIONALIDAD",
-                   "FECHA_INCIO", "CONTRACT_TYPE", "COD_IPI", "DECLARATION_CONTRACT_ID", "PROFESION_ID",
-                   "DISTRIBUTION_KEY_ID", "PORCENTAJE_CONTRATO", "PORCENTAJE_D", "PORCENTAJE_L", "PORCENTAJE_M"]
+        headers = ["COD_SGAE", "WORK_HEADER_ID", "CONTRACT_HEADER_ID", "WORK_TYPE_ID", "VERSION", "TIPOLOGIA",
+                   "NACIONALIDAD", "FECHA_INCIO", "CONTRACT_TYPE", "COD_IPI", "DECLARATION_CONTRACT_ID", "PROFESION_ID",
+                   "DISTRIBUTION_KEY_ID", "DISTRIBUTION_PART_ID", "PORCENTAJE_CONTRATO", "PORCENTAJE_D", "PORCENTAJE_L",
+                   "PORCENTAJE_M", "PORCENTAJE_PROTECCION"]
 
         guardar(headers)
 
@@ -221,10 +243,19 @@ def main():
             tmp = buscar_registro(codigo)
 
             for t in tmp:
-                guardar(t)
+                if t[9] is None or t[13] is None:
+                    print("No se puede determinar la filiacion")
+                    continue
 
-            if len(tmp):
-                encontrados += 1
+                cod_filiacion = filiacion(t[9], t[13])
+
+                if proteccion_sgae(cod_filiacion):
+                    encontrados += 1
+                    guardar(t)
+                else:
+                    print(f"{t[0]} - {t[9]} - {t[13]} no afiliado a SGAE")
+
+            # if len(tmp):
 
     print(f'{encontrados} de {reader.line_num}')
 
