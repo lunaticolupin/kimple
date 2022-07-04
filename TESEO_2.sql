@@ -71,15 +71,16 @@ LEFT JOIN T_AUD."WORK" w2 ON w2.WORK_HEADER_ID = wh.WORK_HEADER_ID AND wh.WORK_T
 where wh.cod_sgae= :COD_SGAE and wc.START_EFFECTIVITY_DATE < to_date('2021-08-18','yyyy-mm-dd');
 
 SELECT t.*, 
-CASE WHEN distribution_part_id = 1 THEN (percentage*porcentaje_d)/(porcentaje_d+porcentaje_l+nvl(porcentaje_f,0))
-	WHEN distribution_part_id = 2 THEN (percentage*porcentaje_l)/(porcentaje_d+porcentaje_l+nvl(porcentaje_f,0))
-	WHEN distribution_part_id = 5 THEN (percentage*porcentaje_f)/(porcentaje_d+porcentaje_l)
-	ELSE NULL END proteccion_sgae
+--CASE WHEN distribution_part_id = 1 THEN (percentage*porcentaje_d)/(porcentaje_d+porcentaje_l+nvl(porcentaje_f,0))
+	--WHEN distribution_part_id = 2 THEN (percentage*porcentaje_l)/(porcentaje_d+porcentaje_l+nvl(porcentaje_f,0))
+	--WHEN distribution_part_id = 5 THEN (percentage*porcentaje_f)/(porcentaje_d+porcentaje_l+nvl(porcentaje_f,0))
+	--ELSE NULL END proteccion_sgae,
+percentage/(porcentaje_d+porcentaje_l+porcentaje_m+nvl(porcentaje_f,0)) proteccion_sgae
 FROM (SELECT DISTINCT  wh.COD_SGAE, wh.WORK_HEADER_ID, ch.contract_header_id,  wh.WORK_TYPE_ID, dc3.VERSION, w.DISTRIBUTION_TYPOLOGY_ID, 
 w.NATIONALITY_ID, wc.START_EFFECTIVITY_DATE,  ch.contract_type_id, dc3.
 dc.COD_IPI, dc.DECLARATION_CONTRACT_ID, dc.PROFESSION_ID, nvl(dc2.DISTRIBUTION_KEY_ID, dc3.DISTRIBUTION_KEY_ID) distribution_key_id,  dc.DISTRIBUTION_PART_ID, 
 nvl(dc.PERCENTAGE, 100)PERCENTAGE,  nvl(dc2.PERCENTAGE_D, dc3.PERCENTAGE_D) porcentaje_d, nvl(dc2.PERCENTAGE_L, dc3.PERCENTAGE_L) porcentaje_l, nvl(dc2.PERCENTAGE_M, dc3.PERCENTAGE_M) porcentaje_m,
-nvl(dc2.PERCENTAGE_F, dc3.PERCENTAGE_F) porcentaje_f
+nvl(dc2.PERCENTAGE_F, dc3.PERCENTAGE_F) porcentaje_f, dc3.COD_IPI_F 
 from t_aud.work_header wh 
 join t_aud.work_contract wc on wc.work_header_id = wh.work_header_id 
 join t_aud.contract_header ch on ch.contract_header_id = wc.contract_header_id 
@@ -201,3 +202,28 @@ ORDER BY
     DECODE(cc_code,'AV','CC_CODE1','AF','CC_CODE2','AD','CC_CODE3','DW','CC_CODE4','LW','CC_CODE5');
    
 SELECT * FROM T_DIST.T_DIS_SETTLEMENT;
+
+
+SELECT * FROM T_AUD.WORK_HEADER wh WHERE wh.COD_SGAE = 7976903; -- wh.WORK_HEADER_ID = 1241226;
+SELECT * FROM T_AUD.VERSION v WHERE v.WORK_HEADER_ID = 1086095;
+SELECT * FROM T_AUD.VERSION v WHERE v.WORK_HEADER_ID = 617010;
+SELECT * FROM T_AUD.WORK_HEADER wh WHERE wh.WORK_HEADER_ID = 14725;
+SELECT *FROM T_AUD.EPISODE e WHERE e.WORK_HEADER_ID = 595755;
+
+SELECT * FROM T_AUD.EPISODE e WHERE e.WORK_HEADER_ID = 9531;
+SELECT * FROM T_AUD."WORK" w WHERE w.WORK_HEADER_ID = 14725;
+SELECT * FROM T_AUD.WORK_HEADER wh 
+JOIN T_AUD.WORK_CONTRACT wc ON wc.WORK_HEADER_ID = wh.WORK_HEADER_ID 
+WHERE wh.WORK_HEADER_ID = 14725;
+
+SELECT * FROM T_AUD.WORK_CONTRACT wc 
+-- LEFT JOIN T_AUD.DECLARATION_CONTRACT dc ON dc.CONTRACT_HEADER_ID = wc.CONTRACT_HEADER_ID 
+WHERE wc.WORK_HEADER_ID = 14725 --AND wc.START_EFFECTIVITY_DATE < to_date('2021-08-18','yyyy-mm-dd') 
+--AND (wc.END_EFFECTIVITY_DATE IS NULL OR wc.END_EFFECTIVITY_DATE > to_date('2021-08-18','yyyy-mm-dd')) ;
+
+SELECT * FROM T_AUD.DECLARATION_CONTRACT dc WHERE dc.CONTRACT_HEADER_ID = 272811;
+SELECT * FROM T_AUD.DISTRIBUTION_CONTRACT dc WHERE dc.CONTRACT_HEADER_ID = 25036;
+SELECT * FROM T_AUD.WORK_CONTRACT wc WHERE wc.CONTRACT_HEADER_ID = 25036;
+SELECT * FROM T_AUD.CONTRACT_HEADER ch WHERE ch.CONTRACT_HEADER_ID = 25036;
+
+SELECT * FROM T_AUD.DEFAULT_CONTRACT dc WHERE PERCENTAGE_F IS NOT null;

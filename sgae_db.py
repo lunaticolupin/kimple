@@ -164,10 +164,11 @@ def proteccion_sgae(soc_code):
 
 def buscar_registro(codigo):
     sql = """SELECT t.*, 
-    CASE WHEN distribution_part_id = 1 THEN (percentage*porcentaje_d)/(porcentaje_d+porcentaje_l+nvl(porcentaje_f,0))
-    WHEN distribution_part_id = 2 THEN (percentage*porcentaje_l)/(porcentaje_d+porcentaje_l+nvl(porcentaje_f,0))
-    WHEN distribution_part_id = 5 THEN (percentage*porcentaje_f)/(porcentaje_d+porcentaje_l)
-    ELSE NULL END proteccion_sgae
+    --CASE WHEN distribution_part_id = 1 THEN (percentage*porcentaje_d)/(porcentaje_d+porcentaje_l+nvl(porcentaje_f,0))
+    --WHEN distribution_part_id = 2 THEN (percentage*porcentaje_l)/(porcentaje_d+porcentaje_l+nvl(porcentaje_f,0))
+    --WHEN distribution_part_id = 5 THEN (percentage*porcentaje_f)/(porcentaje_d+porcentaje_l)
+    --ELSE NULL END proteccion_sgae
+    percentage/(porcentaje_d+porcentaje_l+porcentaje_m+nvl(porcentaje_f,0)) proteccion_sgae
     FROM (SELECT DISTINCT  wh.COD_SGAE, wh.WORK_HEADER_ID, ch.contract_header_id,  wh.WORK_TYPE_ID, dc3.VERSION, w.DISTRIBUTION_TYPOLOGY_ID, 
     w.NATIONALITY_ID, wc.START_EFFECTIVITY_DATE,  ch.contract_type_id, dc3.
     dc.COD_IPI, dc.DECLARATION_CONTRACT_ID, dc.PROFESSION_ID, nvl(dc2.DISTRIBUTION_KEY_ID, dc3.DISTRIBUTION_KEY_ID) distribution_key_id,  dc.DISTRIBUTION_PART_ID, 
@@ -215,7 +216,7 @@ def buscar_registro(codigo):
 
 
 def guardar(row):
-    with open('resultados_14.csv', 'a', newline='') as file:
+    with open('resultados_15.csv', 'a', newline='') as file:
         registros = csv.writer(file, delimiter=',')
         registros.writerow(row)
 
